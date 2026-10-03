@@ -1,0 +1,23 @@
+package com.ludoroyale.app.rewards
+
+import android.content.Context
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
+data class RewardDay(val day: Int, val label: String, val coins: Int = 0, val xp: Int = 0)
+object DailyRewards { val cycle = listOf(RewardDay(1,"Coins",100),RewardDay(2,"XP",50,xp=50),RewardDay(3,"Coins",180),RewardDay(4,"XP",100,xp=100),RewardDay(5,"Coins",250),RewardDay(6,"Bonus",300,xp=150),RewardDay(7,"Royal reward",750)); fun today(day:Int)=cycle[(day-1)%7] }
+data class DailyState(val day: Int = 1, val lastClaim: String? = null, val streak: Int = 0, val bestStreak: Int = 0) { val claimedToday get() = lastClaim == LocalDate.now().toString() }
+class DailyRewardRepository(context: Context) { private val p=context.getSharedPreferences("daily_rewards",Context.MODE_PRIVATE); fun load()=DailyState(p.getInt("day",1),p.getString("last",null),p.getInt("streak",0),p.getInt("best",0)); fun save(s:DailyState){p.edit().putInt("day",s.day).putString("last",s.lastClaim).putInt("streak",s.streak).putInt("best",s.bestStreak).apply()} }
+class DailyRewardManager(private val repo: DailyRewardRepository) { fun state()=repo.load(); fun claim(now:LocalDate=LocalDate.now()):DailyState { val old=repo.load(); if(old.lastClaim==now.toString()) return old; val next=when(old.lastClaim){null->1; else->{val gap=ChronoUnit.DAYS.between(LocalDate.parse(old.lastClaim),now); if(gap==1L) (old.day%7)+1 else 1}}; val s=DailyState(next,now.toString(),if(old.lastClaim!=null&&ChronoUnit.DAYS.between(LocalDate.parse(old.lastClaim),now)==1L) old.streak+1 else 1,maxOf(old.bestStreak,if(old.lastClaim!=null&&ChronoUnit.DAYS.between(LocalDate.parse(old.lastClaim),now)==1L) old.streak+1 else 1)); repo.save(s); return s } }
+
+data class Mission(val id:String,val title:String,val description:String,val target:Int,val rewardCoins:Int,val rewardXp:Int,val progress:Int=0,val claimed:Boolean=false){val completed get()=progress>=target}
+object MissionCatalog { val definitions=listOf(Mission("games1","First match","Play 1 game",1,100,30),Mission("games3","Getting started","Play 3 games",3,250,70),Mission("wins1","First victory","Win 1 game",1,150,50),Mission("wins3","Winning habit","Win 3 games",3,350,100),Mission("captures3","Sharp shooter","Capture 3 tokens",3,250,80),Mission("home5","Home stretch","Bring 5 tokens home",5,300,100),Mission("xp100","Earn XP","Earn 100 XP",100,200,60)) }
+class MissionRepository(context:Context){private val p=context.getSharedPreferences("missions",Context.MODE_PRIVATE); fun load():List<Mission> = MissionCatalog.definitions.map{it.copy(progress=p.getInt(it.id,0),claimed=p.getBoolean(it.id+"_claimed",false))}; fun save(list:List<Mission>){val e=p.edit();list.forEach{e.putInt(it.id,it.progress).putBoolean(it.id+"_claimed",it.claimed)};e.apply()}}
+class MissionManager(private val repo:MissionRepository){fun missions()=repo.load(); fun sync(games:Int,wins:Int,captures:Int,home:Int,xp:Int):List<Mission>{val out=repo.load().map{it.copy(progress=when(it.id){"games1","games3"->games;"wins1","wins3"->wins;"captures3"->captures;"home5"->home;"xp100"->xp;else->it.progress})};repo.save(out);return out};fun claim(id:String):Mission?{val m=repo.load().firstOrNull{it.id==id}?:return null;if(!m.completed||m.claimed)return null;val out=repo.load().map{if(it.id==id)it.copy(claimed=true)else it};repo.save(out);return m.copy(claimed=true)}}
+data class LiveEvent(val title:String,val description:String,val start:String,val end:String,val progress:Int,val target:Int,val reward:String){val active get()=LocalDate.now() in LocalDate.parse(start)..LocalDate.parse(end)}
+object Events { val sample=LiveEvent("Royal Sprint","Bring tokens home during the season.","2026-10-01","2026-10-31",0,10,"250 virtual coins") }
+class RewardsViewModel(private val daily:DailyRewardManager,private val missionsRepo:MissionRepository):androidx.lifecycle.ViewModel(){private val _daily=MutableStateFlow(daily.state());val dailyState:StateFlow<DailyState> = _daily.asStateFlow();private val _missions=MutableStateFlow(missionsRepo.load());val missions:StateFlow<List<Mission>>=_missions.asStateFlow();val event=Events.sample;fun claimDaily(){_daily.value=daily.claim()}
+    fun sync(progress:Int, games:Int, wins:Int, captures:Int, home:Int){ _missions.value = MissionManager(missionsRepo).sync(games,wins,captures,home,progress) };fun claimMission(id:String):Mission?{val m=MissionManager(missionsRepo).claim(id);if(m!=null)_missions.value=missionsRepo.load();return m}}
