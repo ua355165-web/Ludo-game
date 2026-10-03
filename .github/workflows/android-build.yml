@@ -1,4 +1,4 @@
-name: Ludo Royale Android Cloud Build
+name: Android build
 on: [push]
 jobs:
   build:
@@ -13,7 +13,7 @@ jobs:
         uses: android-actions/setup-android@v3
         with:
           cmdline-tools-version: 12266719
-      - name: Accept Licenses & Install SDKs
+      - name: Accept licenses and install SDKs
         run: |
           yes | sdkmanager --licenses
           sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
@@ -24,5 +24,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ludo-game-apk
+          name: ludo-apk
           path: app/build/outputs/apk/debug/*.apk
