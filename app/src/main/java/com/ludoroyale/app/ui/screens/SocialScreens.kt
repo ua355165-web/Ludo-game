@@ -1,0 +1,12 @@
+package com.ludoroyale.app.ui.screens
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.ludoroyale.app.social.*
+@Composable fun FriendsSocialScreen(vm:SocialViewModel,onBack:()->Unit){var id by remember{mutableStateOf("")};val msg by vm.message.collectAsState();Column(Modifier.fillMaxSize().padding(24.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){TextButton(onClick=onBack){Text("‹  Back")};Text("Friends",fontSize=30.sp,fontWeight=FontWeight.ExtraBold);Text("My Player ID: guest-local",color=MaterialTheme.colorScheme.primary);OutlinedTextField(id,{id=it},label={Text("Search Player ID")},modifier=Modifier.fillMaxWidth());Button(enabled=id.isNotBlank()&&id!="guest-local",onClick={vm.sendRequest("guest-local",id)},modifier=Modifier.fillMaxWidth()){Text("Send friend request")};Text("Pending requests",fontWeight=FontWeight.Bold);Text("No pending requests yet.",color=MaterialTheme.colorScheme.onSurfaceVariant);msg?.let{Text(it,color=MaterialTheme.colorScheme.primary)}}}
+@Composable fun NotificationsScreen(vm:SocialViewModel,onBack:()->Unit){val notifications by vm.notifications.collectAsState();Column(Modifier.fillMaxSize().padding(24.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){TextButton(onClick=onBack){Text("‹  Back")};Text("Notifications",fontSize=30.sp,fontWeight=FontWeight.ExtraBold);if(notifications.isEmpty())Text("You're all caught up.",color=MaterialTheme.colorScheme.onSurfaceVariant);notifications.forEach{n->ElevatedCard(onClick={vm.markRead(n.id)}){Column(Modifier.padding(16.dp)){Text(n.title,fontWeight=FontWeight.Bold);Text(n.body);if(!n.read)Text("Unread",color=MaterialTheme.colorScheme.primary,fontSize=12.sp)}}}}}
+@Composable fun QuickChatPanel(vm:SocialViewModel,room:String,playerId:String,muted:Boolean,onMutedChange:(Boolean)->Unit){var open by remember{mutableStateOf(false)};Column{Row{Text("Quick chat",fontWeight=FontWeight.Bold);Spacer(Modifier.weight(1f));TextButton(onClick={onMutedChange(!muted)}){Text(if(muted)"Unmute" else "Mute")};TextButton(onClick={open=!open}){Text("Open")}};if(open&&!muted)Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){QuickChats.all.forEach{chat->AssistChip(onClick={vm.quickChat(room,playerId,chat);open=false},label={Text("${chat.emoji} ${chat.label}")})}}}}

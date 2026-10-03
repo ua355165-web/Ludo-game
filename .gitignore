@@ -1,6 +1,5 @@
-build/
-app/build/
-.gradle/
-.idea/
-*.apk
-*.aab
+# Secrets and local signing material
+google-services.json
+*.jks
+*.keystore
+keystore.properties
